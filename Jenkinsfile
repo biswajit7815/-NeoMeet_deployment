@@ -2,24 +2,22 @@ pipeline {
     agent any
 
     tools {
-    nodejs 'node21'
-}
-
+        nodejs 'node21'
+    }
 
     environment {
-        DOCKERHUB_USERNAME = "biswajit7815"
-        BACKEND_IMAGE = "neomeet-backend"
-        FRONTEND_IMAGE = "neomeet-frontend"
+        DOCKERHUB_USERNAME = 'biswajit7815'
+        BACKEND_IMAGE = 'neomeet-backend'
+        FRONTEND_IMAGE = 'neomeet-frontend'
         SCANNER_HOME = tool 'sonar-scanner'
         IMAGE_TAG = "${BUILD_NUMBER}"
         BACKEND_CONTAINER = 'neomeet-backend'
         FRONTEND_CONTAINER = 'neomeet-frontend'
         BACKEND_PORT = '8000'
-        EC2_PUBLIC_IP = "13.50.231.238"
+        EC2_PUBLIC_IP = '13.50.231.238'
     }
 
     stages {
-
         // =========================
         // CLEANUP & CHECKOUT
         // =========================
@@ -36,7 +34,6 @@ pipeline {
         // =========================
         stage('install dependencies') {
             parallel {
-
                 stage('Backend install') {
                     steps {
                         dir('backend') {
@@ -55,16 +52,14 @@ pipeline {
             }
         }
 
-         // =========================
+        // =========================
         // SECURITY SCAN
         // =========================
         stage('security scan') {
             parallel {
-
-                // OWASP Dependency Check........
+                // OWASP Dependency Check............
                 stage('OWASP Dependency Check') {
                     steps {
-
                         sh 'mkdir -p reports/owasp'
 
                         dependencyCheck(
@@ -90,10 +85,9 @@ pipeline {
                     }
                 }
 
-                 // Trivy FS Scan karta he.....
+                // Trivy FS Scan karta he.....
                 stage('Trivy FS Scan') {
                     steps {
-
                         sh '''
                             mkdir -p reports/trivy
 
@@ -109,14 +103,12 @@ pipeline {
                 }
             }
         }
-            // =========================
+        // =========================
         // SONARQUBE
         // =========================
         stage('SonarQube Analysis') {
             steps {
-
                 withSonarQubeEnv('sonar-server') {
-
                     sh """
                         ${SCANNER_HOME}/bin/sonar-scanner \
                         -Dsonar.projectKey=blood-bank-management \
@@ -127,14 +119,12 @@ pipeline {
             }
         }
 
-    
         // =========================
         // BUILD DOCKER IMAGES
         // =========================
         stage('Build Docker Images') {
             steps {
-
-                echo "Building backend image..."
+                echo 'Building backend image...'
 
                 sh """
                     docker build \
@@ -144,7 +134,7 @@ pipeline {
                         ./backend
                 """
 
-                echo "Building frontend image..."
+                echo 'Building frontend image...'
 
                 sh """
                     docker build \
@@ -158,12 +148,11 @@ pipeline {
             }
         }
 
-           // =========================
+        // =========================
         // TRIVY IMAGE SCAN
         // =========================
         stage('Trivy Image Scan') {
             steps {
-
                 sh """
                     trivy image \
                         --exit-code 0 \
@@ -182,15 +171,12 @@ pipeline {
             }
         }
 
-
         // =========================
         // PUSH TO DOCKER HUB
         // =========================
         stage('Push to Docker Hub') {
             steps {
-
                 script {
-
                     withCredentials([
                         usernamePassword(
                             credentialsId: 'docker-hub-creds',
@@ -198,7 +184,6 @@ pipeline {
                             usernameVariable: 'DOCKER_USER'
                         )
                     ]) {
-
                         sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
 
                         sh "docker push ${DOCKERHUB_USERNAME}/${BACKEND_IMAGE}:${IMAGE_TAG}"
@@ -207,7 +192,7 @@ pipeline {
                         sh "docker push ${DOCKERHUB_USERNAME}/${FRONTEND_IMAGE}:${IMAGE_TAG}"
                         sh "docker push ${DOCKERHUB_USERNAME}/${FRONTEND_IMAGE}:latest"
 
-                        sh "docker logout"
+                        sh 'docker logout'
                     }
                 }
             }
@@ -218,15 +203,12 @@ pipeline {
         // =========================
         stage('Deploy') {
             steps {
-
                 script {
-
                     withCredentials([
                         string(credentialsId: 'MONGODB_URI', variable: 'MONGODB_URI'),
                         string(credentialsId: 'JWT_SECRET', variable: 'JWT_SECRET')
                     ]) {
-
-                        echo "Stopping old containers..."
+                        echo 'Stopping old containers...'
 
                         sh "docker stop ${BACKEND_CONTAINER} || true"
                         sh "docker stop ${FRONTEND_CONTAINER} || true"
@@ -234,11 +216,11 @@ pipeline {
                         sh "docker rm ${BACKEND_CONTAINER} || true"
                         sh "docker rm ${FRONTEND_CONTAINER} || true"
 
-                        echo "Creating Docker network..."
+                        echo 'Creating Docker network...'
 
-                        sh "docker network create neomeet-network || true"
+                        sh 'docker network create neomeet-network || true'
 
-                        echo "Starting backend container..."
+                        echo 'Starting backend container...'
 
                         sh """
                             docker run -d \
@@ -251,7 +233,7 @@ pipeline {
                                 ${DOCKERHUB_USERNAME}/${BACKEND_IMAGE}:${IMAGE_TAG}
                         """
 
-                        echo "Starting frontend container..."
+                        echo 'Starting frontend container...'
 
                         sh """
                             docker run -d \
@@ -262,20 +244,20 @@ pipeline {
                                 ${DOCKERHUB_USERNAME}/${FRONTEND_IMAGE}:${IMAGE_TAG}
                         """
 
-                        echo "Waiting for containers..."
+                        echo 'Waiting for containers...'
 
-                        sh "sleep 20"
+                        sh 'sleep 20'
 
-                        echo "Container status..."
+                        echo 'Container status...'
 
                         sh "docker ps --filter 'name=${BACKEND_CONTAINER}'"
                         sh "docker ps --filter 'name=${FRONTEND_CONTAINER}'"
 
-                        echo "Backend health check..."
+                        echo 'Backend health check...'
 
                         sh "curl -sf http://localhost:${BACKEND_PORT}/ && echo 'Backend Healthy'"
 
-                        echo "Frontend health check..."
+                        echo 'Frontend health check...'
 
                         sh "curl -sf http://localhost && echo 'Frontend Healthy'"
 
@@ -290,12 +272,11 @@ pipeline {
         // =========================
         stage('Cleanup Old Images') {
             steps {
+                echo 'Cleaning dangling images...'
 
-                echo "Cleaning dangling images..."
+                sh 'docker image prune -f'
 
-                sh "docker image prune -f"
-
-                echo "Removing old backend images..."
+                echo 'Removing old backend images...'
 
                 sh """
                     docker images ${DOCKERHUB_USERNAME}/${BACKEND_IMAGE} --format "{{.Tag}}" \
@@ -304,7 +285,7 @@ pipeline {
                         | xargs -r -I {} docker rmi ${DOCKERHUB_USERNAME}/${BACKEND_IMAGE}:{} || true
                 """
 
-                echo "Removing old frontend images..."
+                echo 'Removing old frontend images...'
 
                 sh """
                     docker images ${DOCKERHUB_USERNAME}/${FRONTEND_IMAGE} --format "{{.Tag}}" \
@@ -317,16 +298,15 @@ pipeline {
     }
 
     post {
+        // HAMESHA CHALEGA - pass ho ya fail
+        always {
+            archiveArtifacts artifacts: 'reports/**/', allowEmptyArchive: true
+            sh 'docker logout || true'
+        }
 
-    // HAMESHA CHALEGA - pass ho ya fail
-    always {
-        archiveArtifacts artifacts: 'reports/**/', allowEmptyArchive: true
-        sh "docker logout || true"
-    }
-
-    // SIRF SUCCESS PAR
-    success {
-        emailext(
+        // SIRF SUCCESS PAR
+        success {
+            emailext(
             to:       'biswajitbehera1868@gmail.com',
             subject:  "Build #${BUILD_NUMBER} - ${JOB_NAME} - SUCCESS",
             mimeType: 'text/html',
@@ -390,11 +370,11 @@ pipeline {
                 </html>
             """
         )
-    }
+        }
 
-    // SIRF FAILURE PAR
-    failure {
-        emailext(
+        // SIRF FAILURE PAR
+        failure {
+            emailext(
             to:       'biswajitbehera1868@gmail.com',
             subject:  "Build #${BUILD_NUMBER} - ${JOB_NAME} - FAILED",
             mimeType: 'text/html',
@@ -457,15 +437,15 @@ pipeline {
                 </html>
             """
         )
-    }
+        }
 
-    // cleanup
-    cleanup {
-        cleanWs(
+        // cleanup
+        cleanup {
+            cleanWs(
             cleanWhenSuccess: true,
             cleanWhenFailure: false,
             cleanWhenAborted: true
         )
+        }
     }
-}
 }
