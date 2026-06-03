@@ -111,8 +111,8 @@ pipeline {
                 withSonarQubeEnv('sonar-server') {
                     sh """
                         ${SCANNER_HOME}/bin/sonar-scanner \
-                        -Dsonar.projectKey=blood-bank-management \
-                        -Dsonar.projectName=blood-bank-management \
+                        -Dsonar.projectKey=neomeet-management \
+                        -Dsonar.projectName=neomeet-management \
                         -Dsonar.sources=backend,frontend
                     """
                 }
