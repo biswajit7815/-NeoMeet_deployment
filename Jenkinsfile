@@ -85,7 +85,7 @@ pipeline {
                     }
                 }
 
-                // Trivy FS Scan karta he.....
+                // Trivy FS Scan karta he.........
                 stage('Trivy FS Scan') {
                     steps {
                         sh '''
