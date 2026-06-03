@@ -10,6 +10,7 @@ pipeline {
         DOCKERHUB_USERNAME = "biswajit7815"
         BACKEND_IMAGE = "neomeet-backend"
         FRONTEND_IMAGE = "neomeet-frontend"
+        SCANNER_HOME = tool 'sonar-scanner'
         IMAGE_TAG = "${BUILD_NUMBER}"
         BACKEND_CONTAINER = 'neomeet-backend'
         FRONTEND_CONTAINER = 'neomeet-frontend'
@@ -54,6 +55,78 @@ pipeline {
             }
         }
 
+         // =========================
+        // SECURITY SCAN
+        // =========================
+        stage('security scan') {
+            parallel {
+
+                // OWASP Dependency Check........
+                stage('OWASP Dependency Check') {
+                    steps {
+
+                        sh 'mkdir -p reports/owasp'
+
+                        dependencyCheck(
+                            additionalArguments: '''
+                                --scan backend/
+                                --scan frontend/
+                                --format HTML
+                                --format XML
+                                --out reports/owasp/
+                                --disableAssembly
+                                --disableYarnAudit
+                                --disableNodeAudit
+                                --prettyPrint
+                            ''',
+                            odcInstallation: 'DP-Check'
+                        )
+
+                        dependencyCheckPublisher(
+                            pattern: 'reports/owasp/dependency-check-report.xml',
+                            failedTotalCritical: 10,
+                            unstableTotalCritical: 5
+                        )
+                    }
+                }
+
+                 // Trivy FS Scan karta he.....
+                stage('Trivy FS Scan') {
+                    steps {
+
+                        sh '''
+                            mkdir -p reports/trivy
+
+                            trivy fs . \
+                                --exit-code 0 \
+                                --severity HIGH,CRITICAL \
+                                --format table \
+                                -o reports/trivy/fs-scan.txt
+
+                            cat reports/trivy/fs-scan.txt
+                        '''
+                    }
+                }
+            }
+        }
+            // =========================
+        // SONARQUBE
+        // =========================
+        stage('SonarQube Analysis') {
+            steps {
+
+                withSonarQubeEnv('sonar-server') {
+
+                    sh """
+                        ${SCANNER_HOME}/bin/sonar-scanner \
+                        -Dsonar.projectKey=blood-bank-management \
+                        -Dsonar.projectName=blood-bank-management \
+                        -Dsonar.sources=backend,frontend
+                    """
+                }
+            }
+        }
+
     
         // =========================
         // BUILD DOCKER IMAGES
@@ -84,6 +157,31 @@ pipeline {
                 """
             }
         }
+
+           // =========================
+        // TRIVY IMAGE SCAN
+        // =========================
+        stage('Trivy Image Scan') {
+            steps {
+
+                sh """
+                    trivy image \
+                        --exit-code 0 \
+                        --severity HIGH,CRITICAL \
+                        --format table \
+                        -o reports/trivy/backend-image-scan.txt \
+                        ${DOCKERHUB_USERNAME}/${BACKEND_IMAGE}:latest
+
+                    trivy image \
+                        --exit-code 0 \
+                        --severity HIGH,CRITICAL \
+                        --format table \
+                        -o reports/trivy/frontend-image-scan.txt \
+                        ${DOCKERHUB_USERNAME}/${FRONTEND_IMAGE}:latest
+                """
+            }
+        }
+
 
         // =========================
         // PUSH TO DOCKER HUB
@@ -222,6 +320,7 @@ pipeline {
 
     // HAMESHA CHALEGA - pass ho ya fail
     always {
+        archiveArtifacts artifacts: 'reports/**/', allowEmptyArchive: true
         sh "docker logout || true"
     }
 
