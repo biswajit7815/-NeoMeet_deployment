@@ -7,14 +7,10 @@ pipeline {
         BACKEND_IMAGE = "neomeet-backend"
         FRONTEND_IMAGE = "neomeet-frontend"
         IMAGE_TAG = "${BUILD_NUMBER}"
-
-        SCANNER_HOME = tool 'sonar-scanner'
-
         BACKEND_CONTAINER = 'neomeet-backend'
         FRONTEND_CONTAINER = 'neomeet-frontend'
-
         BACKEND_PORT = '8000'
-        EC2_PUBLIC_IP = "65.2.189.152"
+        EC2_PUBLIC_IP = "13.50.231.238"
     }
 
     stages {
@@ -148,7 +144,7 @@ pipeline {
                                 --network neomeet-network \
                                 --restart unless-stopped \
                                 -p ${BACKEND_PORT}:${BACKEND_PORT} \
-                                -e MONGODB_URI="${MONGO_URI}" \
+                                -e MONGODB_URI="${MONGODB_URI}" \
                                 -e JWT_SECRET="${JWT_SECRET}" \
                                 ${DOCKERHUB_USERNAME}/${BACKEND_IMAGE}:${IMAGE_TAG}
                         """
