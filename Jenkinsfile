@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    tools {
+    nodejs 'node21'
+}
+
 
     environment {
         DOCKERHUB_USERNAME = "biswajit7815"
