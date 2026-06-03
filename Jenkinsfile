@@ -138,7 +138,7 @@ pipeline {
 
                         echo "Creating Docker network..."
 
-                        sh "docker network create blood-network || true"
+                        sh "docker network create neomeet-network || true"
 
                         echo "Starting backend container..."
 
